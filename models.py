@@ -102,7 +102,7 @@ def build_decoder(name="Decoder"):
         x = tf.keras.layers.Add(name=f"SumSkips_{i}")([x_, x])
     # Reshape to image format
     outputs = upsampler(
-        3, 
+        1, 
         size=(1,1), 
         strides=(1,1), 
         dilation=1, 

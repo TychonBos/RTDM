@@ -41,9 +41,9 @@ def fgsm(imgs, labels, epsilon=tf.constant(0.01)):
 
 # Define the per-batch training procedure
 ae_loss_fn = tf.keras.losses.BinaryCrossentropy()
-def train_step(data):
+def train_step(batch):
     # Split images and labels
-    imgs, labels = data
+    imgs, labels = batch
 
     # Get adversarial examples
     adv_imgs = fgsm(imgs)
@@ -81,8 +81,8 @@ def train_step(data):
 
 # Convert to distributed train step
 @tf.function(reduce_retracing=True)
-def distributed_train_step(data):
-    per_replica_losses = distributor.run(train_step, args=(data,))
+def distributed_train_step(batch):
+    per_replica_losses = distributor.run(train_step, args=(batch,))
     return distributor.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
 
 # Train batches
