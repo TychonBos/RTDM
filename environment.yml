@@ -4,4 +4,7 @@ channels:
   - defaults
 dependencies:
   - python=3.9.13
-  - tensorflow=2.12.0
+  - pip:
+    - tensorflow==2.12.0 
+  # In case of a Linux GPU machine:
+  # conda-forge::tensorflow-gpu=2.12.0
