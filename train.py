@@ -20,7 +20,7 @@ def dataset_from_arrays(x, y):
         ).map(
             # One-hot encode labels
             lambda x, y: (x, tf.one_hot(y, depth=10))
-        ).batch(BATCH_SIZE).cache()#.repeat()
+        ).batch(BATCH_SIZE).cache().repeat()
 
 # Get data
 (X_train, y_train), (X_test, y_test) = tf.keras.datasets.mnist.load_data()
