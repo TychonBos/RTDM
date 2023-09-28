@@ -3,9 +3,30 @@ import os, json
 os.environ["XLA_FLAGS"] = "--xla_gpu_cuda_data_dir=/usr/lib/cuda" # Replace with correct location
 os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 import tensorflow as tf
-from setup import *
+from models import *
 distributor = tf.distribute.MirroredStrategy()
 tf.keras.mixed_precision.set_global_policy("mixed_float16")
+
+# Define dataset transformations
+def dataset_from_arrays(x, y):
+    return tf.data.Dataset.from_tensor_slices(
+        (x, y)
+        ).map(
+            # Transform for compatibility with 2d conv
+            lambda x, y: (tf.expand_dims(x, axis=-1), y)
+        ).map(
+            # Resize for decoding stability
+            lambda x, y: (tf.image.resize(x, (32,32)), y)
+        ).map(
+            # One-hot encode labels
+            lambda x, y: (x, tf.one_hot(y, depth=10))
+        ).batch(BATCH_SIZE).cache()#.repeat()
+
+# Get data
+(X_train, y_train), (X_test, y_test) = tf.keras.datasets.mnist.load_data()
+# Convert to tf dataset 
+data_train = dataset_from_arrays(X_train, y_train)
+data_test= dataset_from_arrays(X_test, y_test)
 
 # Build models distributed and use mixed-precision loss scaling
 with distributor.scope():
@@ -87,7 +108,7 @@ def distributed_train_step(batch):
 
 # Train batches
 history = {}
-for i, batch in enumerate(data):
+for i, batch in enumerate(data_train):
     # Stop training at some point
     if i==1e4:
         break
