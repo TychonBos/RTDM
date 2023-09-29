@@ -47,11 +47,11 @@ with distributor.scope():
     classifier_optimizer = tf.keras.mixed_precision.LossScaleOptimizer(classifier_optimizer)
 
 # Define function for calculating and applying perturbations
-cl_loss_fn = tf.keras.losses.CategoricalCrossentropy(from_logits=True)
+cl_loss_fn = tf.keras.losses.CategoricalCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
 def fgsm(imgs, labels, epsilon=tf.constant(0.01)):
     with tf.GradientTape() as tape:
         tape.watch(imgs)
-        predictions = classifier(input_image)
+        predictions = classifier(imgs)
         loss = cl_loss_fn(labels, predictions)
 
     # Get the gradients of the loss w.r.t to the input image.
@@ -61,13 +61,13 @@ def fgsm(imgs, labels, epsilon=tf.constant(0.01)):
     return imgs + epsilon*signed_gradients
 
 # Define the per-batch training procedure
-ae_loss_fn = tf.keras.losses.BinaryCrossentropy()
+ae_loss_fn = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
 def train_step(batch):
     # Split images and labels
     imgs, labels = batch
 
     # Get adversarial examples
-    adv_imgs = fgsm(imgs)
+    adv_imgs = fgsm(imgs, labels)
 
     # Watch variables
     with tf.GradientTape(persistent=True) as tape:
@@ -82,7 +82,7 @@ def train_step(batch):
         classifier_loss = cl_loss_fn(predictions, labels)
         classifier_loss = classifier_optimizer.get_scaled_loss(classifier_loss)
         # Calculate loss for encoder and decoder and prevent overflow
-        ae_loss = ae_loss_fn(reconstructed, adv_batch)
+        ae_loss = ae_loss_fn(reconstructed, adv_imgs)
         ae_loss = ae_optimizer.get_scaled_loss(ae_loss)
 
     # Backpropagate the ae loss
@@ -115,10 +115,11 @@ for i, batch in enumerate(data_train):
     # Train the networks
     losses = distributed_train_step(batch)
     history[i] = {key: float(value) for key, value in losses.items()}
+    print(history)
     # Periodically update
     if (i+1)%100==0:
         # Save progress
         json.dump(history, open("./history.json", mode="w"))
         # Save weights
-        generator.save("generator.keras")
-        discriminator.save("discriminator.keras")
+        encoder.save("encoder.keras")
+        decoder.save("decoder.keras")

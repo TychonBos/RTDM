@@ -75,7 +75,7 @@ def build_encoder(name="Encoder"):
     queries = Inception(nfilters=2, module=downsampler, strides=1, name="Queries")(inputs)
     values = Inception(nfilters=2, module=downsampler, strides=1, name="Values")(inputs)
     keys = Inception(nfilters=2, module=downsampler, strides=1, name="Keys")(inputs)    
-    x = tf.keras.layers.Attention()([queries, values, keys])
+    x = MemoryEfficientAttention()([queries, values, keys])
     # Create some downsampling modules
     for i, nfilters in enumerate(FILTERS):
         # Create identity with specified number of filters
