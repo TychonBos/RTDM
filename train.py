@@ -115,7 +115,6 @@ for i, batch in enumerate(data_train):
     # Train the networks
     losses = distributed_train_step(batch)
     history[i] = {key: float(value) for key, value in losses.items()}
-    print(history)
     # Periodically update
     if (i+1)%100==0:
         # Save progress
@@ -123,3 +122,4 @@ for i, batch in enumerate(data_train):
         # Save weights
         encoder.save("encoder.keras")
         decoder.save("decoder.keras")
+        classifier.save("classifier.keras")
