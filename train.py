@@ -4,23 +4,9 @@ os.environ["XLA_FLAGS"] = "--xla_gpu_cuda_data_dir=/usr/lib/cuda" # Replace with
 os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 import tensorflow as tf
 from models import *
+from utils import *
 distributor = tf.distribute.MirroredStrategy()
 tf.keras.mixed_precision.set_global_policy("mixed_float16")
-
-# Define dataset transformations
-def dataset_from_arrays(x, y):
-    return tf.data.Dataset.from_tensor_slices(
-        (x, y)
-        ).map(
-            # Transform for compatibility with 2d conv
-            lambda x, y: (tf.expand_dims(x, axis=-1), y)
-        ).map(
-            # Resize for decoding stability
-            lambda x, y: (tf.image.resize(x, (32,32)), y)
-        ).map(
-            # One-hot encode labels
-            lambda x, y: (x, tf.one_hot(y, depth=10))
-        ).batch(BATCH_SIZE).cache().repeat()
 
 # Get data
 (X_train, y_train), (X_test, y_test) = tf.keras.datasets.mnist.load_data()
@@ -46,28 +32,15 @@ with distributor.scope():
     classifier_optimizer = tf.keras.optimizers.Adam() 
     classifier_optimizer = tf.keras.mixed_precision.LossScaleOptimizer(classifier_optimizer)
 
-# Define function for calculating and applying perturbations
-cl_loss_fn = tf.keras.losses.CategoricalCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
-def fgsm(imgs, labels, epsilon=tf.constant(0.01)):
-    with tf.GradientTape() as tape:
-        tape.watch(imgs)
-        predictions = classifier(imgs)
-        loss = cl_loss_fn(labels, predictions)
-
-    # Get the gradients of the loss w.r.t to the input image.
-    gradients = tape.gradient(loss, imgs)
-    # Get the sign of the gradients to create the perturbation
-    signed_gradients = tf.sign(gradients)
-    return imgs + epsilon*signed_gradients
-
 # Define the per-batch training procedure
+clf_loss_fn = tf.keras.losses.CategoricalCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
 ae_loss_fn = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
 def train_step(batch):
     # Split images and labels
     imgs, labels = batch
 
     # Get adversarial examples
-    adv_imgs = fgsm(imgs, labels)
+    adv_imgs = fgsm(classifier, clf_loss_fn, imgs, labels)
 
     # Watch variables
     with tf.GradientTape(persistent=True) as tape:
@@ -79,7 +52,7 @@ def train_step(batch):
         predictions = classifier(reconstructed)
 
         # Calculate loss for classifier and prevent overflow
-        classifier_loss = cl_loss_fn(predictions, labels)
+        classifier_loss = clf_loss_fn(predictions, labels)
         classifier_loss = classifier_optimizer.get_scaled_loss(classifier_loss)
         # Calculate loss for encoder and decoder and prevent overflow
         ae_loss = ae_loss_fn(reconstructed, adv_imgs)
