@@ -54,18 +54,6 @@ class Inception(tf.keras.Model):
     def from_config(cls, config):
         config["module"] = tf.keras.layers.deserialize(config["module"])
         return cls(**config)
-    
-# Implement memory-efficient attention
-class MemoryEfficientAttention(tf.keras.layers.Layer):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-    def call(self, inputs):
-        queries, values, keys = inputs
-        s = tf.matmul(queries, keys, transpose_b=True)
-        s_d = tf.exp(s)
-        return tf.matmul(s_d, values)/tf.reduce_sum(s_d, axis=-1, keepdims=True)
-    def get_config(self):
-        return super().get_config()
 
 # Define a function to build the encoder
 def build_encoder(name="Encoder"):
@@ -75,7 +63,7 @@ def build_encoder(name="Encoder"):
     queries = Inception(nfilters=2, module=downsampler, strides=1, name="Queries")(inputs)
     values = Inception(nfilters=2, module=downsampler, strides=1, name="Values")(inputs)
     keys = Inception(nfilters=2, module=downsampler, strides=1, name="Keys")(inputs)    
-    x = MemoryEfficientAttention()([queries, values, keys])
+    x = tf.keras.layers.Attention()([queries, values, keys])
     # Create some downsampling modules
     for i, nfilters in enumerate(FILTERS):
         # Create identity with specified number of filters
