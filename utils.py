@@ -22,6 +22,8 @@ def dataset_from_arrays(x, y):
             # Transform for compatibility with 2d conv
             lambda x, y: (tf.expand_dims(x, axis=-1), y)
         ).map(
+            lambda x, y: (tf.image.convert_image_dtype(x, dtype=tf.float32), y)
+        ).map(
             # Resize for decoding stability
             lambda x, y: (tf.image.resize(x, (32,32)), y)
         ).map(
@@ -32,4 +34,4 @@ def dataset_from_arrays(x, y):
 # A loss that is not per-pixel
 class SSIM(tf.keras.losses.Loss):
     def call(self, y_true, y_pred):
-        return tf.image.ssim(y_true, y_pred, return_index_map=True)
+        return tf.image.ssim(y_true, y_pred, max_val=1., return_index_map=True)
