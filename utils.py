@@ -37,4 +37,4 @@ class SSIM(tf.keras.losses.Loss):
         kwargs.pop("reduction", None)
         super().__init__(reduction=tf.keras.losses.Reduction.NONE)
     def call(self, y_true, y_pred):
-        return tf.image.ssim(y_true, y_pred, max_val=1., return_index_map=True)
+        return -tf.image.ssim(y_true, y_pred, max_val=1., return_index_map=True)
