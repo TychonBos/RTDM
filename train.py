@@ -29,7 +29,7 @@ with distributor.scope():
     # Classifier
     classifier = build_classifier()
     # Optimizer
-    classifier_optimizer = tf.keras.optimizers.Adam() 
+    classifier_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-5) 
     classifier_optimizer = tf.keras.mixed_precision.LossScaleOptimizer(classifier_optimizer)
 
 # Define the per-batch training procedure
