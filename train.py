@@ -83,7 +83,7 @@ def distributed_train_step(batch):
 history = {}
 for i, batch in enumerate(data_train):
     # Stop training at some point
-    if i==1e4:
+    if i==2e3:
         break
     # Train the networks
     losses = distributed_train_step(batch)
