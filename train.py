@@ -55,7 +55,7 @@ def train_step(batch):
         classifier_loss = clf_loss_fn(predictions, labels)
         classifier_loss = classifier_optimizer.get_scaled_loss(classifier_loss)
         # Calculate loss for encoder and decoder and prevent overflow
-        ae_loss = ae_loss_fn(reconstructed, adv_imgs)
+        ae_loss = ae_loss_fn(reconstructed, imgs)
         ae_loss = ae_optimizer.get_scaled_loss(ae_loss)
 
     # Backpropagate the ae loss
