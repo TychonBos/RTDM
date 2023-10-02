@@ -28,3 +28,8 @@ def dataset_from_arrays(x, y):
             # One-hot encode labels
             lambda x, y: (x, tf.one_hot(y, depth=10))
         ).batch(BATCH_SIZE).cache().repeat()
+
+# A loss that is not per-pixel
+class SSIM(tf.keras.losses.Loss):
+    def call(self, y_true, y_pred):
+        return tf.image.ssim(y_true, y_pred, return_index_map=True)
