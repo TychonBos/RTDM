@@ -118,5 +118,5 @@ def build_classifier(name="Classifier"):
         # Sum skip and inception
         x = tf.keras.layers.Add(name=f"SumSkips_{i}")([x_, x])
     x = tf.keras.layers.GlobalMaxPooling2D(name="Pooling")(x)
-    outputs = tf.keras.layers.Dense(units=N_CLASSES, dtype=tf.float32, activation=None, name="Dense")(x)
+    outputs = tf.keras.layers.Dense(units=N_CLASSES, dtype=tf.float32, activation=tf.keras.activations.softmax, name="Dense")(x)
     return tf.keras.Model(inputs=inputs, outputs=outputs, name=name)

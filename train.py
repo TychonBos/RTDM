@@ -33,7 +33,7 @@ with distributor.scope():
     classifier_optimizer = tf.keras.mixed_precision.LossScaleOptimizer(classifier_optimizer)
 
 # Define the per-batch training procedure
-clf_loss_fn = tf.keras.losses.CategoricalCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
+clf_loss_fn = tf.keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
 ae_loss_fn = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
 def train_step(batch):
     # Split images and labels
