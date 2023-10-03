@@ -34,7 +34,7 @@ with distributor.scope():
 
 # Define the per-batch training procedure
 clf_loss_fn = tf.keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
-ae_loss_fn = MS_SSIM_L1()
+ae_loss_fn = SSIM_L1()
 def train_step(batch):
     # Split images and labels
     imgs, labels = batch

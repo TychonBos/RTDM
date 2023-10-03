@@ -32,21 +32,13 @@ def dataset_from_arrays(x, y):
         ).batch(BATCH_SIZE).cache().repeat()
 
 # A non-pixelwise loss --> https://arxiv.org/pdf/1511.08861.pdf
-class MS_SSIM_L1(tf.keras.losses.Loss): 
+class SSIM_L1(tf.keras.losses.Loss): 
     def __init__(self, alpha=.84, **kwargs):
         kwargs.pop("reduction", None)
         super().__init__(reduction=tf.keras.losses.Reduction.NONE)
         self.l1 = tf.keras.losses.MeanAbsoluteError(reduction=tf.keras.losses.Reduction.NONE)
         self.alpha = alpha
     def call(self, y_true, y_pred):
-        # ssim = -tf.image.ssim_multiscale(y_true, y_pred, max_val=1., return_index_map=True)
-        ms_ssim = -tf.image.ssim_multiscale(
-            y_true, 
-            y_pred, 
-            max_val=1., 
-            filter_size=8, 
-            power_factors=(0.07105472, 0.45297387, 0.4759715)
-        )
-        ms_ssim = tf.boolean_mask(ms_ssim, tf.math.not_equal(ms_ssim, 0.))
+        ssim = -tf.image.ssim(y_true, y_pred, max_val=1., return_index_map=True)
         l1 = tf.reduce_mean(self.l1(y_true, y_pred), axis=tf.range(1, tf.rank(y_true)-1), keepdims=True)
-        return self.alpha*ms_ssim + (1-self.alpha)*l1
+        return self.alpha*ssim + (1-self.alpha)*l1
