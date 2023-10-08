@@ -12,6 +12,13 @@ N_CLASSES = 10
 
 # Define a function that creates a Sequential model consisting of deconvolutions
 def upsampler(nfilters, size, strides, dilation, activation=None, name=None):
+    """
+    A function that implements a sequence of layers to perform a stable transposed convolution block.
+
+    For arguments, see `tf.keras.layers.Conv2DTranspose`.
+
+    Returns: An instance of `tf.keras.Sequential`
+    """
     return tf.keras.Sequential([
         tf.keras.layers.Dropout(rate=.4),
         tf.keras.layers.Conv2DTranspose(filters=nfilters, kernel_size=size, padding="same", strides=strides, dilation_rate=dilation),
@@ -21,6 +28,13 @@ def upsampler(nfilters, size, strides, dilation, activation=None, name=None):
 
 # Define a function that creates a Sequential model consisting of convolutions
 def downsampler(nfilters, size, strides, dilation, activation=None, name=None):
+    """
+    A function that implements a sequence of layers to perform a stable convolution block.
+
+    For arguments, see `tf.keras.layers.Conv2D`.
+
+    Returns: An instance of `tf.keras.Sequential`
+    """
     return tf.keras.Sequential([
         tf.keras.layers.Dropout(rate=.4),
         tf.keras.layers.Conv2D(filters=nfilters, kernel_size=size, padding="same", strides=strides, dilation_rate=dilation),
@@ -30,6 +44,11 @@ def downsampler(nfilters, size, strides, dilation, activation=None, name=None):
 
 # Define a simple inception module 
 class Inception(tf.keras.Model):
+    """
+    A class that implements a block of inception using downsampling modules. Inherits from `tf.keras.Model`.
+    
+    For arguments, see `tf.keras.layers.Conv2D`.
+    """
     def __init__(self, nfilters, module=upsampler, strides=2, dilation=1, activation=None, name=None, **kwargs):
         super().__init__(name=name, **kwargs)
         self.branch1 = module(nfilters=nfilters//2, size=6, strides=strides, dilation=dilation, activation=activation)
@@ -57,6 +76,11 @@ class Inception(tf.keras.Model):
 
 # Define a function to build the encoder
 def build_encoder(name="Encoder"):
+    """
+    Prepares the encoder model using an architecture based on Inception-ResNet.
+
+    Returns: An instance of `tf.keras.Model`.
+    """
     # Get input
     inputs = tf.keras.layers.Input(shape=INPUT_SHAPE, batch_size=BATCH_SIZE, name="Input")
     # Attend to specific parts using memory-efficient attention
@@ -77,6 +101,11 @@ def build_encoder(name="Encoder"):
 
 # Define a function to build the decoder
 def build_decoder(name="Decoder"):
+    """
+    Prepares the decoder model using an architecture based on Inception-ResNet.
+
+    Returns: An instance of `tf.keras.Model`.
+    """
     # Get input
     inputs = x = tf.keras.layers.Input(shape=LATENT_SHAPE, batch_size=BATCH_SIZE, name="LatentInput")
     # Revert the downsampling
@@ -101,6 +130,11 @@ def build_decoder(name="Decoder"):
 
 # Define a function to build the classifier
 def build_classifier(name="Classifier"):
+    """
+    Prepares the classification model using an architecture based on Inception-ResNet.
+
+    Returns: An instance of `tf.keras.Model`.
+    """
     # Get input
     inputs = tf.keras.layers.Input(shape=INPUT_SHAPE, batch_size=BATCH_SIZE, name="Input")
     # Attend to specific parts using memory-efficient attention
