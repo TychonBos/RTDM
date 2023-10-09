@@ -33,7 +33,7 @@ def dataset_from_arrays(x, y):
 
 # A non-pixelwise loss --> https://arxiv.org/pdf/1511.08861.pdf
 class SSIM_L1(tf.keras.losses.Loss): 
-    def __init__(self, alpha=.5, **kwargs):
+    def __init__(self, alpha, **kwargs):
         kwargs.pop("reduction", None)
         super().__init__(reduction=tf.keras.losses.Reduction.NONE)
         self.l1 = tf.keras.losses.MeanAbsoluteError(reduction=tf.keras.losses.Reduction.NONE)
