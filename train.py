@@ -34,7 +34,8 @@ with distributor.scope():
 
 # Define the per-batch training procedure
 clf_loss_fn = tf.keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
-ae_loss_fn = SSIM_L1(alpha=tf.Variable(.84, trainable=True, name="alpha"))
+alpha = tf.Variable(.84, trainable=True, name="alpha")
+ae_loss_fn = SSIM_L1(alpha)
 def train_step(batch):
     # Split images and labels
     imgs, labels = batch
@@ -59,9 +60,16 @@ def train_step(batch):
         ae_loss = ae_optimizer.get_scaled_loss(ae_loss)
 
     # Backpropagate the ae loss
-    ae_gradients = tape.gradient(ae_loss, ae.trainable_variables)
+    ae_gradients, alpha_gradient = tape.gradient(ae_loss, [ae.trainable_variables, alpha])
     ae_gradients = ae_optimizer.get_unscaled_gradients(ae_gradients)
+    alpha_gradient = ae_optimizer.get_unscaled_gradients([alpha_gradient])
     ae_optimizer.apply_gradients(zip(ae_gradients, ae.trainable_variables))
+    alpha.assign_sub(tf.constant(1e-4, name="lr")*tf.squeeze(alpha_gradient))
+    # Ensure alpha in [0,1]
+    if tf.greater(alpha,1.):
+        alpha.assign(1.)
+    elif tf.less(alpha,0.):
+        alpha.assign(0.)
     # Backpropagate the classifier loss
     classifier_gradients = tape.gradient(classifier_loss, classifier.trainable_variables)
     classifier_gradients = classifier_optimizer.get_unscaled_gradients(classifier_gradients)
