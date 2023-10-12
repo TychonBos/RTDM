@@ -3,6 +3,17 @@ from models import BATCH_SIZE
 
 # Define function for calculating and applying perturbations
 def fgsm(classifier, clf_loss_fn, imgs, labels, epsilon=tf.constant(0.01)):
+    """
+    Transforms images into adversarial examples.
+    Args:
+    \t- classifier: The classification model.
+    \t- clf_loss_fn: The loss function used for the classifier.
+    \t- imgs: The images to be perturbed.
+    \t- labels: The corresponding labels.
+    \t- epsilon: A perturbation level between 0 and 1.
+    """
+
+    # Watch the image
     with tf.GradientTape() as tape:
         tape.watch(imgs)
         predictions = classifier(imgs)
@@ -16,6 +27,13 @@ def fgsm(classifier, clf_loss_fn, imgs, labels, epsilon=tf.constant(0.01)):
 
 # Define dataset transformations
 def dataset_from_arrays(x, y):
+    """
+    Takes NumPy arrays and uses these to create a `tf.data.Dataset`
+    Args:
+    \t- x: The images.
+    \t- y: The corresponding labels.
+    """
+
     return tf.data.Dataset.from_tensor_slices(
         (x, y)
         ).map(
@@ -31,14 +49,31 @@ def dataset_from_arrays(x, y):
             lambda x, y: (x, tf.one_hot(y, depth=10))
         ).batch(BATCH_SIZE).cache().repeat()
 
-# A non-pixelwise loss --> https://arxiv.org/pdf/1511.08861.pdf
+# A non-pixelwise loss
 class SSIM_L1(tf.keras.losses.Loss): 
+    """
+    A loss function specialized for autoencoders, introduced in https://arxiv.org/pdf/1511.08861.pdf
+    """
+
     def __init__(self, alpha, **kwargs):
+        """
+        Initialize the loss object.
+        Args:
+        \t- alpha: The weighting factor between SSIM and L1. 
+        """
+
         kwargs.pop("reduction", None)
         super().__init__(reduction=tf.keras.losses.Reduction.NONE)
         self.l1 = tf.keras.losses.MeanAbsoluteError(reduction=tf.keras.losses.Reduction.NONE)
         self.alpha = alpha
     def call(self, y_true, y_pred):
+        """
+        Calculate loss.
+        Args:
+        \t- y_true: True images.
+        \t- y_pred: Predicted images.
+        """
+
         ssim = -tf.image.ssim(y_true, y_pred, max_val=1., return_index_map=True)
         l1 = tf.reduce_mean(self.l1(y_true, y_pred), axis=tf.range(1, tf.rank(y_true)-1), keepdims=True)
         return self.alpha*ssim + (1-self.alpha)*l1

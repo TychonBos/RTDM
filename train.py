@@ -37,6 +37,9 @@ clf_loss_fn = tf.keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.
 alpha = tf.Variable(.84, trainable=True, name="alpha")
 ae_loss_fn = SSIM_L1(alpha)
 def train_step(batch):
+    """
+    Takes one batch of data and trains the models for one step.
+    """
     # Split images and labels
     imgs, labels = batch
 
@@ -84,6 +87,9 @@ def train_step(batch):
 # Convert to distributed train step
 @tf.function(reduce_retracing=True)
 def distributed_train_step(batch):
+    """
+    Takes one batch of data and trains the models for one step.
+    """
     per_replica_losses = distributor.run(train_step, args=(batch,))
     return distributor.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
 
