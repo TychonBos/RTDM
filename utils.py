@@ -4,7 +4,7 @@ from models import BATCH_SIZE
 # Define function for calculating and applying perturbations
 def fgsm(classifier, clf_loss_fn, imgs, labels, epsilon=tf.constant(0.01)):
     """
-    Transforms images into adversarial examples.
+    Transforms images into adversarial examples using the Fast Gradient Sign Method.
     Args:
     \t- classifier: The classification model.
     \t- clf_loss_fn: The loss function used for the classifier.
@@ -24,6 +24,66 @@ def fgsm(classifier, clf_loss_fn, imgs, labels, epsilon=tf.constant(0.01)):
     # Get the sign of the gradients to create the perturbation
     signed_gradients = tf.sign(gradients)
     return imgs + epsilon*signed_gradients
+
+def ifgsm(classifier, clf_loss_fn, imgs, labels, epsilon=0.01, iterations=10, alpha=1.0):
+    """
+    Transforms images into adversarial examples using the Iterative Fast Gradient Sign Method.
+    Args:
+    \t- classifier: The classification model.
+    \t- clf_loss_fn: The loss function used for the classifier.
+    \t- imgs: The images to be perturbed.
+    \t- labels: The corresponding labels.
+    \t- epsilon: A perturbation level between 0 and 1.
+    """
+
+    perturbed_imgs = tf.identity(imgs)
+
+    for _ in range(iterations):
+        with tf.GradientTape() as tape:
+            tape.watch(perturbed_imgs)
+            predictions = classifier(perturbed_imgs)
+            loss = clf_loss_fn(labels, predictions)
+
+        gradients = tape.gradient(loss, perturbed_imgs)
+        signed_gradients = tf.sign(gradients)
+        perturbed_imgs = perturbed_imgs + alpha * signed_gradients
+        perturbed_imgs = tf.clip_by_value(perturbed_imgs, imgs - epsilon, imgs + epsilon)
+        perturbed_imgs = tf.clip_by_value(perturbed_imgs, 0, 1)  # Ensure pixel values are in [0, 1] range
+
+    return perturbed_imgs
+
+def carlini_wagner(classifier, imgs, labels, targeted=False, max_iterations=1000, c=0.01, learning_rate=0.01):
+    """
+    Transforms images into adversarial examples using the Carlini Wagner method.
+    Args:
+    \t- classifier: The classification model.
+    \t- clf_loss_fn: The loss function used for the classifier.
+    \t- imgs: The images to be perturbed.
+    \t- labels: The corresponding labels.
+    \t- epsilon: A perturbation level between 0 and 1.
+    """
+        
+    # Define the perturbation variable to be optimized
+    perturbation = tf.Variable(tf.zeros_like(imgs), trainable=True)
+
+    for _ in range(max_iterations):
+        with tf.GradientTape() as tape:
+            tape.watch(perturbation)
+            adversarial_images = tf.clip_by_value(imgs + perturbation, 0, 1)
+            predictions = classifier(adversarial_images)
+
+            if targeted:
+                loss = -tf.reduce_sum(labels * predictions)
+            else:
+                loss = -tf.reduce_sum((1 - labels) * predictions)
+
+            # Add the l2 norm of the perturbation to the loss
+            loss += c * tf.norm(perturbation)
+
+        gradients = tape.gradient(loss, perturbation)
+        perturbation.assign(perturbation + learning_rate * tf.sign(gradients))
+
+    return imgs + perturbation
 
 # Define dataset transformations
 def dataset_from_arrays(x, y):
