@@ -2,7 +2,7 @@ import tensorflow as tf
 from models import BATCH_SIZE
 
 # Define function for calculating and applying perturbations
-def fgsm(classifier, clf_loss_fn, imgs, labels, epsilon=tf.constant(0.01)):
+def fgsm(classifier, clf_loss_fn, imgs, labels, epsilon):
     """
     Transforms images into adversarial examples using the Fast Gradient Sign Method.
     Args:
@@ -25,7 +25,7 @@ def fgsm(classifier, clf_loss_fn, imgs, labels, epsilon=tf.constant(0.01)):
     signed_gradients = tf.sign(gradients)
     return imgs + epsilon*signed_gradients
 
-def ifgsm(classifier, clf_loss_fn, imgs, labels, epsilon=0.01, iterations=10, alpha=1.0):
+def ifgsm(classifier, clf_loss_fn, imgs, labels, epsilon, iterations=10, alpha=1.0):
     """
     Transforms images into adversarial examples using the Iterative Fast Gradient Sign Method.
     Args:
@@ -52,12 +52,12 @@ def ifgsm(classifier, clf_loss_fn, imgs, labels, epsilon=0.01, iterations=10, al
 
     return perturbed_imgs
 
-def carlini_wagner(classifier, imgs, labels, targeted=False, max_iterations=1000, c=0.01, learning_rate=0.01):
+def carlini_wagner(classifier, clf_loss_fn, imgs, labels, epsilon, targeted=False, max_iterations=100, learning_rate=0.01):
     """
     Transforms images into adversarial examples using the Carlini Wagner method.
     Args:
     \t- classifier: The classification model.
-    \t- clf_loss_fn: The loss function used for the classifier.
+    \t- clf_loss_fn: Not used, but required for compatibility.
     \t- imgs: The images to be perturbed.
     \t- labels: The corresponding labels.
     \t- epsilon: A perturbation level between 0 and 1.
@@ -78,7 +78,7 @@ def carlini_wagner(classifier, imgs, labels, targeted=False, max_iterations=1000
                 loss = -tf.reduce_sum((1 - labels) * predictions)
 
             # Add the l2 norm of the perturbation to the loss
-            loss += c * tf.norm(perturbation)
+            loss += epsilon * tf.norm(perturbation)
 
         gradients = tape.gradient(loss, perturbation)
         perturbation.assign(perturbation + learning_rate * tf.sign(gradients))
