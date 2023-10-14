@@ -56,7 +56,7 @@ def train_step(encoder, decoder, ae, classifier, batch, adv_attack, epsilon, clf
         ae_loss = ae_optimizer.get_scaled_loss(ae_loss)
 
     # Backpropagate the ae loss
-    ae_gradients, alpha_gradient = tape.gradient(ae_loss, ae.trainable_variables)
+    ae_gradients = tape.gradient(ae_loss, ae.trainable_variables)
     ae_gradients = ae_optimizer.get_unscaled_gradients(ae_gradients)
     ae_optimizer.apply_gradients(zip(ae_gradients, ae.trainable_variables))
     # Backpropagate the classifier loss
