@@ -22,8 +22,8 @@ def evaluate(dataset, max_i, encoder, decoder, classifier, adv_attack, epsilon):
         predictions = classifier(reconstructed)
         correct_reconstructed += tf.reduce_sum(tf.cast(tf.argmax(predictions, axis=1)==tf.argmax(labels, axis=1), dtype=tf.int32))
 
-        return {
-            "acc_original":correct_original/i,
-            "acc_adv":correct_adv/i,
-            "acc_reconstructed":correct_reconstructed/i
-            }
+    return {
+        "acc_original":float(correct_original/i),
+        "acc_adv":float(correct_adv/i),
+        "acc_reconstructed":float(correct_reconstructed/i)
+        }
