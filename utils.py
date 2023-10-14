@@ -115,7 +115,7 @@ class SSIM_L1(tf.keras.losses.Loss):
     A loss function specialized for autoencoders, introduced in https://arxiv.org/pdf/1511.08861.pdf
     """
 
-    def __init__(self, alpha, **kwargs):
+    def __init__(self, alpha=.84, **kwargs):
         """
         Initialize the loss object.
         Args:
