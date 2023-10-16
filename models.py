@@ -6,7 +6,7 @@ import tensorflow as tf
 # Constants
 INPUT_SHAPE = (32,32,1) # The architecture is also compatible with (None,None,3)
 LATENT_SHAPE = (4,4,256) # The architecture is also compatible with (None,None,256)
-BATCH_SIZE = 32
+BATCH_SIZE = 128
 FILTERS = [64,128,256]
 N_CLASSES = 10
 
