@@ -117,7 +117,7 @@ def run(dataset, adv_attack, epsilon):
     history = {}
     for i, batch in enumerate(dataset):
         # Stop training at some point
-        if i==2e3:
+        if i==1e4:
             break
         # Train the networks
         losses = distributed_train_step(
