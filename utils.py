@@ -57,7 +57,7 @@ def carlini_wagner(classifier, clf_loss_fn, imgs, labels, epsilon, targeted=Fals
     Transforms images into adversarial examples using the Carlini Wagner method.
     Args:
     \t- classifier: The classification model.
-    \t- clf_loss_fn: Not used, but required for compatibility.
+    \t- clf_loss_fn: Ignored, but required for compatibility.
     \t- imgs: The images to be perturbed.
     \t- labels: The corresponding labels.
     \t- epsilon: A perturbation level between 0 and 1.
