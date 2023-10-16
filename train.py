@@ -39,30 +39,32 @@ def train_step(encoder, decoder, ae, classifier, batch, adv_attack, epsilon, clf
     # Get adversarial examples
     adv_imgs = adv_attack(classifier, clf_loss_fn, imgs, labels, epsilon)
 
-    # Watch variables
-    with tf.GradientTape(persistent=True) as tape:
+    # Update autoencoder
+    with tf.GradientTape() as tape:
         # Get latent representation of adversarial examples
         z = encoder(adv_imgs)
         # Reconstruct to originals
         reconstructed = decoder(z)
-        # Classify
-        predictions = classifier(reconstructed)
-
-        # Calculate loss for classifier and prevent overflow
-        classifier_loss = clf_loss_fn(predictions, labels)
-        classifier_loss = classifier_optimizer.get_scaled_loss(classifier_loss)
         # Calculate loss for encoder and decoder and prevent overflow
         ae_loss = ae_loss_fn(reconstructed, imgs)
         ae_loss = ae_optimizer.get_scaled_loss(ae_loss)
-
     # Backpropagate the ae loss
     ae_gradients = tape.gradient(ae_loss, ae.trainable_variables)
     ae_gradients = ae_optimizer.get_unscaled_gradients(ae_gradients)
     ae_optimizer.apply_gradients(zip(ae_gradients, ae.trainable_variables))
-    # Backpropagate the classifier loss
-    classifier_gradients = tape.gradient(classifier_loss, classifier.trainable_variables)
-    classifier_gradients = classifier_optimizer.get_unscaled_gradients(classifier_gradients)
-    classifier_optimizer.apply_gradients(zip(classifier_gradients, classifier.trainable_variables))
+
+    # Update classifier on both originals and reconstructions
+    for x in [imgs, reconstructed]:
+        with tf.GradientTape() as tape:
+            # Classify
+            predictions = classifier(x)
+            # Calculate loss for classifier and prevent overflow
+            classifier_loss = clf_loss_fn(predictions, labels)
+            classifier_loss = classifier_optimizer.get_scaled_loss(classifier_loss)
+        # Backpropagate the classifier loss
+        classifier_gradients = tape.gradient(classifier_loss, classifier.trainable_variables)
+        classifier_gradients = classifier_optimizer.get_unscaled_gradients(classifier_gradients)
+        classifier_optimizer.apply_gradients(zip(classifier_gradients, classifier.trainable_variables))
 
     # Return progress
     return {
