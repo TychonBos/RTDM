@@ -52,31 +52,49 @@ def ifgsm(classifier, clf_loss_fn, imgs, labels, epsilon, iterations=10, alpha=1
 
     return perturbed_imgs
 
-def preprocess(x, y):
-    # Transform for compatibility with 2d conv
-    if tf.rank(x)==2:
-        x = tf.expand_dims(x, axis=-1)
-    else:
-        x = tf.expand_dims(x, axis=0)
-    # Make sure it becomes a float in range [0,1]
-    x = tf.image.convert_image_dtype(x, dtype=tf.float32)
-    # Resize for decoding stability
-    x = tf.image.resize(x, (32,32))
-    # Undo expansion if it proved unnecessary
-    if tf.rank(x)==4:
-        x = x[0]
-    # One-hot encode labels
-    y = tf.one_hot(y, depth=10)
-    return x, y
-
 # Define dataset transformations
-def dataset_from_arrays(x, y):
+def gray_dataset_from_arrays(x, y):
     """
     Takes NumPy arrays and uses these to create a `tf.data.Dataset`
     Args:
     \t- x: The images.
     \t- y: The corresponding labels.
     """
+
+    def preprocess(x, y):
+        # Transform for compatibility with 2d conv
+        x = tf.expand_dims(x, axis=-1)
+        # Make sure it becomes a float in range [0,1]
+        x = tf.image.convert_image_dtype(x, dtype=tf.float32)
+        # Resize for decoding stability
+        x = tf.image.resize(x, (32,32))
+        # One-hot encode labels
+        y = tf.one_hot(y, depth=10)
+        return x, y
+
+    return tf.data.Dataset.from_tensor_slices(
+        (x, y)
+        ).map(
+            preprocess
+        ).batch(BATCH_SIZE).cache().repeat()
+
+# Define dataset transformations
+def color_dataset_from_arrays(x, y):
+    """
+    Takes NumPy arrays and uses these to create a `tf.data.Dataset`
+    Args:
+    \t- x: The images.
+    \t- y: The corresponding labels.
+    """
+
+    def preprocess(x, y):
+        # Make sure it becomes a float in range [0,1]
+        x = tf.image.convert_image_dtype(x, dtype=tf.float32)
+        # Resize for decoding stability
+        x = tf.image.resize(x, (32,32))
+        # One-hot encode labels
+        y = tf.one_hot(y, depth=10)
+        return x, y
 
     return tf.data.Dataset.from_tensor_slices(
         (x, y)
