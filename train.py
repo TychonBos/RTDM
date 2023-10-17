@@ -107,7 +107,7 @@ def distributed_train_step(
 
 # Run the script
 def run(dataset, adv_attack, epsilon):
-    # Define number of channels
+    # Calculate number of channels
     channels = dataset.element_spec[0].shape[-1]
     # Build models
     encoder, decoder, ae, classifier, ae_optimizer, classifier_optimizer = build_models(channels)
