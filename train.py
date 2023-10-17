@@ -9,6 +9,11 @@ distributor = tf.distribute.MirroredStrategy()
 tf.keras.mixed_precision.set_global_policy("mixed_float16")
 
 def build_models(channels):
+    """
+    Build the models defined in models.py
+    Args:
+    \t- channels: int, the number of channels.
+    """
     # Build models distributed and use mixed-precision loss scaling
     with distributor.scope():
         # Encoder
@@ -107,6 +112,13 @@ def distributed_train_step(
 
 # Run the script
 def run(dataset, adv_attack, epsilon):
+    """
+    Runs the entire training procedure for 1e4 steps.
+    Args:
+    \t- dataset: An instance of `tf.data.dataset` with output shape ((None,None,channels),(batch,10))
+    \t- adv_attack: The adversarial attack function to use to generate adversarial examples during training.
+    \t- epsilon: A tf float between 0 and 1, the perturbation level.
+    """
     # Calculate number of channels
     channels = dataset.element_spec[0].shape[-1]
     # Build models
