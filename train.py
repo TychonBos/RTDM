@@ -8,13 +8,13 @@ from utils import *
 distributor = tf.distribute.MirroredStrategy()
 tf.keras.mixed_precision.set_global_policy("mixed_float16")
 
-def build_models():
+def build_models(channels):
     # Build models distributed and use mixed-precision loss scaling
     with distributor.scope():
         # Encoder
-        encoder = build_encoder()
+        encoder = build_encoder(channels)
         # Decoder
-        decoder = build_decoder()
+        decoder = build_decoder(channels)
         # Combine because why not
         ae = tf.keras.Sequential([encoder, decoder], name="Autoencoder")
         # Share an optimizer
@@ -22,7 +22,7 @@ def build_models():
         ae_optimizer = tf.keras.mixed_precision.LossScaleOptimizer(ae_optimizer)
 
         # Classifier
-        classifier = build_classifier()
+        classifier = build_classifier(channels)
         # Optimizer
         classifier_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-5) 
         classifier_optimizer = tf.keras.mixed_precision.LossScaleOptimizer(classifier_optimizer)
@@ -107,8 +107,10 @@ def distributed_train_step(
 
 # Run the script
 def run(dataset, adv_attack, epsilon):
+    # Define number of channels
+    channels = dataset.element_spec[0].shape[-1]
     # Build models
-    encoder, decoder, ae, classifier, ae_optimizer, classifier_optimizer = build_models()
+    encoder, decoder, ae, classifier, ae_optimizer, classifier_optimizer = build_models(channels)
     # Define some objects
     clf_loss_fn = tf.keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
     ae_loss_fn = SSIM_L1()

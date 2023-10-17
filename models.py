@@ -75,14 +75,14 @@ class Inception(tf.keras.Model):
         return cls(**config)
 
 # Define a function to build the encoder
-def build_encoder(name="Encoder"):
+def build_encoder(channels, name="Encoder"):
     """
     Prepares the encoder model using an architecture based on Inception-ResNet.
 
     Returns: An instance of `tf.keras.Model`.
     """
     # Get input
-    inputs = tf.keras.layers.Input(shape=INPUT_SHAPE, batch_size=BATCH_SIZE, name="Input")
+    inputs = tf.keras.layers.Input(shape=(None, None, channels), batch_size=BATCH_SIZE, name="Input")
     # Attend to specific parts using memory-efficient attention
     queries = Inception(nfilters=2, module=downsampler, strides=1, name="Queries")(inputs)
     values = Inception(nfilters=2, module=downsampler, strides=1, name="Values")(inputs)
@@ -100,7 +100,7 @@ def build_encoder(name="Encoder"):
     return tf.keras.Model(inputs=inputs, outputs=x, name=name)
 
 # Define a function to build the decoder
-def build_decoder(name="Decoder"):
+def build_decoder(channels, name="Decoder"):
     """
     Prepares the decoder model using an architecture based on Inception-ResNet.
 
@@ -119,7 +119,7 @@ def build_decoder(name="Decoder"):
         x = tf.keras.layers.Add(name=f"SumSkips_{i}")([x_, x])
     # Reshape to image format
     outputs = upsampler(
-        1, 
+        channels, 
         size=(1,1), 
         strides=(1,1), 
         dilation=1, 
@@ -129,14 +129,14 @@ def build_decoder(name="Decoder"):
     return tf.keras.Model(inputs=inputs, outputs=outputs, name=name)
 
 # Define a function to build the classifier
-def build_classifier(name="Classifier"):
+def build_classifier(channels, name="Classifier"):
     """
     Prepares the classification model using an architecture based on Inception-ResNet.
 
     Returns: An instance of `tf.keras.Model`.
     """
     # Get input
-    inputs = tf.keras.layers.Input(shape=INPUT_SHAPE, batch_size=BATCH_SIZE, name="Input")
+    inputs = tf.keras.layers.Input(shape=(None, None, channels), batch_size=BATCH_SIZE, name="Input")
     # Attend to specific parts using memory-efficient attention
     queries = Inception(nfilters=2, module=downsampler, strides=1, name="Queries")(inputs)
     values = Inception(nfilters=2, module=downsampler, strides=1, name="Values")(inputs)
