@@ -52,39 +52,6 @@ def ifgsm(classifier, clf_loss_fn, imgs, labels, epsilon, iterations=10, alpha=1
 
     return perturbed_imgs
 
-def carlini_wagner(classifier, clf_loss_fn, imgs, labels, epsilon, targeted=False, max_iterations=100, learning_rate=0.01):
-    """
-    Transforms images into adversarial examples using the Carlini Wagner method.
-    Args:
-    \t- classifier: The classification model.
-    \t- clf_loss_fn: Ignored, but required for compatibility.
-    \t- imgs: The images to be perturbed.
-    \t- labels: The corresponding labels.
-    \t- epsilon: A perturbation level between 0 and 1.
-    """
-        
-    # Define the perturbation variable to be optimized
-    perturbation = tf.Variable(tf.zeros_like(imgs), trainable=True)
-
-    for _ in range(max_iterations):
-        with tf.GradientTape() as tape:
-            tape.watch(perturbation)
-            adversarial_images = tf.clip_by_value(imgs + perturbation, 0, 1)
-            predictions = classifier(adversarial_images)
-
-            if targeted:
-                loss = -tf.reduce_sum(labels * predictions)
-            else:
-                loss = -tf.reduce_sum((1 - labels) * predictions)
-
-            # Add the l2 norm of the perturbation to the loss
-            loss += epsilon * tf.norm(perturbation)
-
-        gradients = tape.gradient(loss, perturbation)
-        perturbation.assign(perturbation + learning_rate * tf.sign(gradients))
-
-    return imgs + perturbation
-
 # Define dataset transformations
 def dataset_from_arrays(x, y):
     """
