@@ -4,9 +4,8 @@ os.environ["XLA_FLAGS"] = "--xla_gpu_cuda_data_dir=/usr/lib/cuda" # Replace with
 os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 import tensorflow as tf
 # Constants
-INPUT_SHAPE = (32,32,1) # The architecture is also compatible with (None,None,3)
-LATENT_SHAPE = (4,4,256) # The architecture is also compatible with (None,None,256)
-BATCH_SIZE = 64
+LATENT_SHAPE = (None, None, 256) # The architecture is also compatible with (None,None,256)
+BATCH_SIZE = 32
 FILTERS = [64,128,256]
 N_CLASSES = 10
 
