@@ -1,4 +1,5 @@
 import tensorflow as tf
+from models import BATCH_SIZE
 
 def evaluate(dataset, max_i, encoder, decoder, classifier, adv_attack, epsilon):
     # Initialize scores
@@ -23,7 +24,7 @@ def evaluate(dataset, max_i, encoder, decoder, classifier, adv_attack, epsilon):
         correct_reconstructed += tf.reduce_sum(tf.cast(tf.argmax(predictions, axis=1)==tf.argmax(labels, axis=1), dtype=tf.int32))
 
     return {
-        "acc_original":float(correct_original/i),
-        "acc_adv":float(correct_adv/i),
-        "acc_reconstructed":float(correct_reconstructed/i)
+        "acc_original":float(correct_original/(i*BATCH_SIZE)),
+        "acc_adv":float(correct_adv/(i*BATCH_SIZE)),
+        "acc_reconstructed":float(correct_reconstructed/(i*BATCH_SIZE))
         }
