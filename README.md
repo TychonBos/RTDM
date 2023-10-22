@@ -9,7 +9,7 @@ Create a new conda environment by running `conda env create -f environment.yml`.
 from models import Inception, downsampler, upsampler
 
 with tf.keras.utils.custom_object_scope({
-    'Inception': Inception,
+    "Inception": Inception,
     "downsampler": downsampler,
     "upsampler": upsampler
     }):
