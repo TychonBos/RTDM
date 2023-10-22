@@ -4,7 +4,7 @@
 In this implementation, instead of pretraining a classifier and then training an autoencoder or vice versa, the autoencoder and classifier are trained simultaneously. 
 
 ## Setup
-Create a new conda environment by running `conda env create -f environment.yml`. To load the trained models, follow the code below.
+Create a new conda environment by running `conda env create -f environment.yml`. To load the trained models, follow the code below. Note: The models included in this repository were trained on the CIFAR-10 dataset and trained with IFGSM and ε=0.06.
 ```
 from models import Inception, downsampler, upsampler
 
