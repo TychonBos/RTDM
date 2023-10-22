@@ -97,7 +97,7 @@ def color_dataset_from_arrays(x, y):
         return x, y
 
     return tf.data.Dataset.from_tensor_slices(
-        (x, y)
+        (x, y.flatten())
         ).map(
             preprocess
         ).batch(BATCH_SIZE).cache().repeat()
