@@ -1,7 +1,7 @@
 # An Autoencoder-based Defense Against Adversarial Attacks
 
 ## Implementation
-In this implementation, instead of pretraining a classifier and then training an autoencoder or vice versa, the autoencoder and classifier are trained simultaneously. 
+In this implementation, instead of pretraining a classifier and then training an autoencoder, the autoencoder and classifier are trained simultaneously. 
 
 ## Setup
 Create a new conda environment by running `conda env create -f environment.yml`. To load the trained models and run a simple experiment, follow the code below. Note: The models included in this repository were trained on the CIFAR-10 dataset with IFGSM and ε=0.06.
