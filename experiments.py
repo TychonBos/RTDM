@@ -3,8 +3,7 @@ import os
 os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 import tensorflow as tf, train, json
 from models import build_models, BATCH_SIZE
-from utils import fgsm, ifgsm, cw, to_dataset, distributor
-from evaluate import evaluate
+from utils import fgsm, ifgsm, cw, to_dataset, distributor, evaluate
 from importlib import reload
 tf.keras.mixed_precision.set_global_policy("mixed_float16")
 
