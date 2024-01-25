@@ -1,55 +1,25 @@
 # Packages, environment, and policies
-import os, json
-os.environ["XLA_FLAGS"] = "--xla_gpu_cuda_data_dir=/usr/lib/cuda" # Replace with correct location
-os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
-import tensorflow as tf
-from models import *
-from utils import *
-distributor = tf.distribute.MirroredStrategy()
-tf.keras.mixed_precision.set_global_policy("mixed_float16")
-
-def build_models(channels):
-    """
-    Build the models defined in models.py
-    Args:
-    \t- channels: int, the number of channels.
-    """
-    # Build models distributed and use mixed-precision loss scaling
-    with distributor.scope():
-        # Encoder
-        encoder = build_encoder(channels)
-        # Decoder
-        decoder = build_decoder(channels)
-        # Combine because why not
-        ae = tf.keras.Sequential([encoder, decoder], name="Autoencoder")
-        # Share an optimizer
-        ae_optimizer = tf.keras.optimizers.Adam() 
-        ae_optimizer = tf.keras.mixed_precision.LossScaleOptimizer(ae_optimizer)
-
-        # Classifier
-        classifier = build_classifier(channels)
-        # Optimizer
-        classifier_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-5) 
-        classifier_optimizer = tf.keras.mixed_precision.LossScaleOptimizer(classifier_optimizer)
-    return encoder, decoder, ae, classifier, ae_optimizer, classifier_optimizer
+import json, tensorflow as tf
+from utils import distributor, fgsm, SSIM_L1
 
 # Define the per-batch training procedure
-def train_step(encoder, decoder, ae, classifier, batch, adv_attack, epsilon, clf_loss_fn, ae_loss_fn, ae_optimizer, classifier_optimizer):
+def train_step(classifier, ae, batch, epsilon, clf_loss_fn, ae_loss_fn, ae_optimizer, classifier_optimizer):
     """
     Takes one batch of data and trains the models for one step.
     """
     # Split images and labels
     imgs, labels = batch
+    # Apply random jitter (done here to avoid double application or wrong reconstruction)
+    imgs_jitter = tf.image.random_brightness(imgs, max_delta=.2)
+    imgs_jitter = tf.image.random_contrast(imgs_jitter, lower=-.2, upper=.2)
 
     # Get adversarial examples
-    adv_imgs = adv_attack(classifier, clf_loss_fn, imgs, labels, epsilon)
+    adv_imgs = fgsm(classifier, imgs_jitter, epsilon)
 
     # Update autoencoder
     with tf.GradientTape() as tape:
-        # Get latent representation of adversarial examples
-        z = encoder(adv_imgs)
-        # Reconstruct to originals
-        reconstructed = decoder(z)
+        # Get latent representation and reconstruct to originals
+        reconstructed = ae(adv_imgs, training=True)
         # Calculate loss for encoder and decoder and prevent overflow
         ae_loss = ae_loss_fn(reconstructed, imgs)
         ae_loss = ae_optimizer.get_scaled_loss(ae_loss)
@@ -59,10 +29,10 @@ def train_step(encoder, decoder, ae, classifier, batch, adv_attack, epsilon, clf
     ae_optimizer.apply_gradients(zip(ae_gradients, ae.trainable_variables))
 
     # Update classifier on both originals and reconstructions
-    for x in [imgs, reconstructed]:
+    for x in [imgs_jitter, reconstructed]:
         with tf.GradientTape() as tape:
             # Classify
-            predictions = classifier(x)
+            predictions = classifier(x, training=True)
             # Calculate loss for classifier and prevent overflow
             classifier_loss = clf_loss_fn(predictions, labels)
             classifier_loss = classifier_optimizer.get_scaled_loss(classifier_loss)
@@ -80,12 +50,9 @@ def train_step(encoder, decoder, ae, classifier, batch, adv_attack, epsilon, clf
 # Convert to distributed train step
 @tf.function(reduce_retracing=True)
 def distributed_train_step(
-    encoder, 
-    decoder, 
-    ae,
     classifier, 
+    ae, 
     batch, 
-    adv_attack, 
     epsilon, 
     clf_loss_fn, 
     ae_loss_fn, 
@@ -96,12 +63,9 @@ def distributed_train_step(
     Takes one batch of data and trains the models for one step.
     """
     per_replica_losses = distributor.run(train_step, args=(
-        encoder, 
-        decoder, 
-        ae,
         classifier, 
+        ae, 
         batch, 
-        adv_attack, 
         epsilon, 
         clf_loss_fn, 
         ae_loss_fn, 
@@ -111,18 +75,13 @@ def distributed_train_step(
     return distributor.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
 
 # Run the script
-def run(dataset, adv_attack, epsilon):
+def run(dataset, epsilon, classifier, ae, ae_optimizer, classifier_optimizer):
     """
-    Runs the entire training procedure for 1e4 steps.
-    Args:
-    \t- dataset: An instance of `tf.data.dataset` with output shape ((None,None,channels),(batch,10))
-    \t- adv_attack: The adversarial attack function to use to generate adversarial examples during training.
+    Runs the entire training procedure for 1e4 steps.\n
+    Args:\n
+    \t- dataset: An instance of `tf.data.dataset` with output shape ((None,None,channels),(batch,10))\n
     \t- epsilon: A tf float between 0 and 1, the perturbation level.
     """
-    # Calculate number of channels
-    channels = dataset.element_spec[0].shape[-1]
-    # Build models
-    encoder, decoder, ae, classifier, ae_optimizer, classifier_optimizer = build_models(channels)
     # Define some objects
     clf_loss_fn = tf.keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
     ae_loss_fn = SSIM_L1()
@@ -131,16 +90,13 @@ def run(dataset, adv_attack, epsilon):
     history = {}
     for i, batch in enumerate(dataset):
         # Stop training at some point
-        if i==1e4:
+        if i==5e4:
             break
         # Train the networks
         losses = distributed_train_step(
-            encoder, 
-            decoder, 
-            ae,
             classifier, 
+            ae, 
             batch, 
-            adv_attack, 
             epsilon, 
             clf_loss_fn, 
             ae_loss_fn, 
@@ -149,10 +105,9 @@ def run(dataset, adv_attack, epsilon):
         )
         history[i] = {key: float(value) for key, value in losses.items()}
         # Periodically update
-        if (i+1)%100==0:
+        if (i+1)%1e3==0:
             # Save progress
             json.dump(history, open("./history.json", mode="w"))
             # Save weights
-            encoder.save("encoder.keras")
-            decoder.save("decoder.keras")
+            ae.save("autoencoder.keras")
             classifier.save("classifier.keras")
