@@ -30,8 +30,6 @@ def build_encoder(channels, name="Encoder"):
     """
     # Get input
     inputs = tf.keras.layers.Input(shape=(None, None, channels), batch_size=None, name="Input")
-    x = tf.keras.layers.RandomBrightness(factor=.2, value_range=[0., 1.])(inputs)
-    x = tf.keras.layers.RandomContrast(factor=.2)(x)
     # Create some downsampling blocks
     for i, nfilters in enumerate(FILTERS):
         x = block(
