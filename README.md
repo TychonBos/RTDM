@@ -7,7 +7,7 @@ In this implementation, instead of pretraining a classifier and then training an
 Create a new conda environment by running `conda env create -f environment.yml`. To load the trained models and run a simple experiment, follow the code below. Note: The models included in this repository were trained on the CIFAR-10 dataset with IFGSM and ε=0.06.
 ```
 from models import Inception, downsampler, upsampler
-from utils import ifgsm, to_dataset
+from utils import ifgsm, preprocess, BATCH_SIZE
 import tensorflow as tf
 
 # Load models
@@ -21,12 +21,11 @@ with tf.keras.utils.custom_object_scope({
 
 # Load data
 *_, (X_test, y_test) = tf.keras.datasets.cifar10.load_data()
-data_test = color_dataset_from_arrays(X_test, y_test)
-x, y = list(data_test.take(1))[0]
+x, y = preprocess(X_test, y_test)
 
-# Get predictions
-x_adv = ifgsm(classifier, x, epsilon=.06)
-y_pred_adv = classifier(x_adv)
-x_pur = ae(x_adv)
-y_pred_pur = classifier(x_pur)
+# Get predictions (change slice to anything)
+x_adv = ifgsm(classifier, x[:BATCH_SIZE], epsilon=.06) 
+y_pred_adv = classifier.predict(x_adv)
+x_pur = ae.predict(x_adv)
+y_pred_pur = classifier.predict(x_pur)
 ```
