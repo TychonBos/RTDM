@@ -14,6 +14,12 @@ def cw(classifier, imgs, epsilon=None):
     return carlini_wagner_l2(model_fn=classifier, x=imgs, max_iterations=10)
 
 def preprocess(x, y):
+    """
+    Convert data to correct format.\n
+    Args:\n
+    \t- x: The images.\n
+    \t- y: The labels.
+    """
     # Transform for compatibility with 2d conv
     if len(x.shape)<3: # tf.rank does not work
         x = tf.expand_dims(x, axis=-1)
