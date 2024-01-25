@@ -6,5 +6,6 @@ dependencies:
   - python=3.9.13
   - pip:
     - tensorflow==2.12.1 
+    - cleverhans==4.0.0
   # In case of a Linux GPU machine:
   # conda-forge::tensorflow-gpu=2.12.1
