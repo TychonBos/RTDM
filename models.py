@@ -1,20 +1,16 @@
-# Packages and environment
-import os
-os.environ["XLA_FLAGS"] = "--xla_gpu_cuda_data_dir=/usr/lib/cuda" # Replace with correct location
-os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
+# Packages 
 import tensorflow as tf
 # Constants
-LATENT_SHAPE = (None, None, 256) # The architecture is also compatible with (None,None,256)
-BATCH_SIZE = 32
-FILTERS = [64,128,256]
-N_CLASSES = 10
+FILTERS = [64,128,256,512]
+LATENT_SHAPE = (None, None, FILTERS[-1])
+BATCH_SIZE = 64
 
 # Define a function that creates a Sequential model consisting of deconvolutions
 def upsampler(nfilters, size, strides, dilation, activation=None, name=None):
     """
-    A function that implements a sequence of layers to perform a stable transposed convolution block.
+    A function that implements a sequence of layers to perform a stable transposed convolution block.\n
 
-    For arguments, see `tf.keras.layers.Conv2DTranspose`.
+    For arguments, see `tf.keras.layers.Conv2DTranspose`.\n
 
     Returns: An instance of `tf.keras.Sequential`
     """
@@ -28,9 +24,9 @@ def upsampler(nfilters, size, strides, dilation, activation=None, name=None):
 # Define a function that creates a Sequential model consisting of convolutions
 def downsampler(nfilters, size, strides, dilation, activation=None, name=None):
     """
-    A function that implements a sequence of layers to perform a stable convolution block.
+    A function that implements a sequence of layers to perform a stable convolution block.\n
 
-    For arguments, see `tf.keras.layers.Conv2D`.
+    For arguments, see `tf.keras.layers.Conv2D`.\n
 
     Returns: An instance of `tf.keras.Sequential`
     """
@@ -44,7 +40,7 @@ def downsampler(nfilters, size, strides, dilation, activation=None, name=None):
 # Define a simple inception module 
 class Inception(tf.keras.Model):
     """
-    A class that implements a block of inception using downsampling modules. Inherits from `tf.keras.Model`.
+    A class that implements a block of inception using downsampling modules. Inherits from `tf.keras.Model`.\n
     
     For arguments, see `tf.keras.layers.Conv2D`.
     """
@@ -76,12 +72,12 @@ class Inception(tf.keras.Model):
 # Define a function to build the encoder
 def build_encoder(channels, name="Encoder"):
     """
-    Prepares the encoder model using an architecture based on Inception-ResNet.
+    Prepares the encoder model using an architecture based on Inception-ResNet.\n
 
     Returns: An instance of `tf.keras.Model`.
     """
     # Get input
-    inputs = tf.keras.layers.Input(shape=(None, None, channels), batch_size=BATCH_SIZE, name="Input")
+    inputs = tf.keras.layers.Input(shape=(None, None, channels), batch_size=None, name="Input")
     # Attend to specific parts using memory-efficient attention
     queries = Inception(nfilters=2, module=downsampler, strides=1, name="Queries")(inputs)
     values = Inception(nfilters=2, module=downsampler, strides=1, name="Values")(inputs)
@@ -101,16 +97,16 @@ def build_encoder(channels, name="Encoder"):
 # Define a function to build the decoder
 def build_decoder(channels, name="Decoder"):
     """
-    Prepares the decoder model using an architecture based on Inception-ResNet.
+    Prepares the decoder model using an architecture based on Inception-ResNet.\n
 
     Returns: An instance of `tf.keras.Model`.
     """
     # Get input
-    inputs = x = tf.keras.layers.Input(shape=LATENT_SHAPE, batch_size=BATCH_SIZE, name="LatentInput")
+    inputs = x = tf.keras.layers.Input(shape=LATENT_SHAPE, batch_size=None, name="LatentInput")
     # Revert the downsampling
     for i, nfilters in enumerate(reversed(FILTERS)):
         # Create identity with specified number of filters
-        x_ = upsampler(nfilters, size=(1,1), strides=(2,2), dilation=1, name=f"Downsampler_{i}")(x)
+        x_ = upsampler(nfilters, size=(1,1), strides=(2,2), dilation=1, name=f"Upsampler_{i}")(x)
         # Pass input through inception module
         x = Inception(nfilters=nfilters, strides=(2,2), name=f"Inception_{i*2}")(x)
         x = Inception(nfilters=nfilters, strides=(1,1), dilation=2**i, module=downsampler, name=f"Inception_{i*2+1}")(x)
@@ -122,20 +118,20 @@ def build_decoder(channels, name="Decoder"):
         size=(1,1), 
         strides=(1,1), 
         dilation=1, 
-        activation=tf.keras.layers.Activation("sigmoid", dtype="float32"), 
+        activation=tf.keras.layers.Activation("sigmoid", dtype=tf.float32), 
         name=f"Upsampler_{i*2+2}"
         )(x)
     return tf.keras.Model(inputs=inputs, outputs=outputs, name=name)
 
 # Define a function to build the classifier
-def build_classifier(channels, name="Classifier"):
+def build_classifier(channels, nclasses, name="Classifier"):
     """
-    Prepares the classification model using an architecture based on Inception-ResNet.
+    Prepares the classification model using an architecture based on Inception-ResNet.\n
 
     Returns: An instance of `tf.keras.Model`.
     """
     # Get input
-    inputs = tf.keras.layers.Input(shape=(None, None, channels), batch_size=BATCH_SIZE, name="Input")
+    inputs = tf.keras.layers.Input(shape=(None, None, channels), batch_size=None, name="Input")
     # Attend to specific parts using memory-efficient attention
     queries = Inception(nfilters=2, module=downsampler, strides=1, name="Queries")(inputs)
     values = Inception(nfilters=2, module=downsampler, strides=1, name="Values")(inputs)
@@ -151,5 +147,34 @@ def build_classifier(channels, name="Classifier"):
         # Sum skip and inception
         x = tf.keras.layers.Add(name=f"SumSkips_{i}")([x_, x])
     x = tf.keras.layers.GlobalMaxPooling2D(name="Pooling")(x)
-    outputs = tf.keras.layers.Dense(units=N_CLASSES, dtype=tf.float32, activation=tf.keras.activations.softmax, name="Dense")(x)
+    x = tf.keras.layers.Dense(units=512, activation=tf.keras.layers.LeakyReLU(), name="Dense1")(x)
+    x = tf.keras.layers.Dropout(rate=.25)(x)
+    x = tf.keras.layers.Dense(units=256, activation=tf.keras.layers.LeakyReLU(), name="Dense2")(x)
+    x = tf.keras.layers.Dropout(rate=.25)(x)
+    x = tf.keras.layers.Dense(units=128, activation=tf.keras.layers.LeakyReLU(), name="Dense3")(x)
+    x = tf.keras.layers.Dropout(rate=.25)(x)
+    outputs = tf.keras.layers.Dense(units=nclasses, dtype=tf.float32, activation=tf.keras.activations.softmax, name="Outputs")(x)
     return tf.keras.Model(inputs=inputs, outputs=outputs, name=name)
+
+def build_models(channels, nclasses):
+    """
+    Build all models and use mixed precision.\n
+    Args:\n
+    \t- channels: int, the number of channels.
+    """
+    # Encoder
+    encoder = build_encoder(channels)
+    # Decoder
+    decoder = build_decoder(channels)
+    # Combine because why not
+    ae = tf.keras.Sequential([encoder, decoder], name="Autoencoder")
+    # Share an optimizer
+    ae_optimizer = tf.keras.optimizers.Adam(epsilon=1e-3) 
+    ae_optimizer = tf.keras.mixed_precision.LossScaleOptimizer(ae_optimizer)
+
+    # Classifier
+    classifier = build_classifier(channels, nclasses)
+    # Optimizer
+    classifier_optimizer = tf.keras.optimizers.Adam(epsilon=1e-3, learning_rate=1e-5) 
+    classifier_optimizer = tf.keras.mixed_precision.LossScaleOptimizer(classifier_optimizer)
+    return classifier, ae, ae_optimizer, classifier_optimizer
