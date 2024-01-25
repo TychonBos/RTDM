@@ -1,106 +1,49 @@
 import tensorflow as tf
 from models import BATCH_SIZE
+from cleverhans.tf2.attacks.fast_gradient_method import fast_gradient_method
+from cleverhans.tf2.attacks.basic_iterative_method import basic_iterative_method
+from cleverhans.tf2.attacks.carlini_wagner_l2 import carlini_wagner_l2 #https://github.com/cleverhans-lab/cleverhans/issues/1205#issuecomment-1028411235
+distributor = tf.distribute.MirroredStrategy()
 
-# Define function for calculating and applying perturbations
-def fgsm(classifier, clf_loss_fn, imgs, labels, epsilon):
-    """
-    Transforms images into adversarial examples using the Fast Gradient Sign Method.
-    Args:
-    \t- classifier: The classification model.
-    \t- clf_loss_fn: The loss function used for the classifier.
-    \t- imgs: The images to be perturbed.
-    \t- labels: The corresponding labels.
-    \t- epsilon: A perturbation level between 0 and 1.
-    """
+# Wrap the cleverhans attacks to standardize parameters
+def fgsm(classifier, imgs, epsilon):
+    return fast_gradient_method(classifier, imgs, epsilon, float("inf"))
+def ifgsm(classifier, imgs, epsilon):
+    return basic_iterative_method(model_fn=classifier, x=imgs, eps=epsilon, norm=float("inf"), nb_iter=20, eps_iter=.01)
+def cw(classifier, imgs, epsilon=None):
+    return carlini_wagner_l2(model_fn=classifier, x=imgs, max_iterations=10)
 
-    # Watch the image
-    with tf.GradientTape() as tape:
-        tape.watch(imgs)
-        predictions = classifier(imgs)
-        loss = clf_loss_fn(labels, predictions)
-
-    # Get the gradients of the loss w.r.t to the input image.
-    gradients = tape.gradient(loss, imgs)
-    # Get the sign of the gradients to create the perturbation
-    signed_gradients = tf.sign(gradients)
-    return imgs + epsilon*signed_gradients
-
-def ifgsm(classifier, clf_loss_fn, imgs, labels, epsilon, iterations=10, alpha=1.0):
-    """
-    Transforms images into adversarial examples using the Iterative Fast Gradient Sign Method.
-    Args:
-    \t- classifier: The classification model.
-    \t- clf_loss_fn: The loss function used for the classifier.
-    \t- imgs: The images to be perturbed.
-    \t- labels: The corresponding labels.
-    \t- epsilon: A perturbation level between 0 and 1.
-    """
-
-    perturbed_imgs = tf.identity(imgs)
-
-    for _ in range(iterations):
-        with tf.GradientTape() as tape:
-            tape.watch(perturbed_imgs)
-            predictions = classifier(perturbed_imgs)
-            loss = clf_loss_fn(labels, predictions)
-
-        gradients = tape.gradient(loss, perturbed_imgs)
-        signed_gradients = tf.sign(gradients)
-        perturbed_imgs = perturbed_imgs + alpha * signed_gradients
-        perturbed_imgs = tf.clip_by_value(perturbed_imgs, imgs - epsilon, imgs + epsilon)
-        perturbed_imgs = tf.clip_by_value(perturbed_imgs, 0, 1)  # Ensure pixel values are in [0, 1] range
-
-    return perturbed_imgs
+def preprocess(x, y):
+    # Transform for compatibility with 2d conv
+    if len(x.shape)<3: # tf.rank does not work
+        x = tf.expand_dims(x, axis=-1)
+    x = tf.ensure_shape(x, (None,None,None))
+    # Make sure it becomes a float in range [0,1]
+    x = tf.image.convert_image_dtype(x, dtype=tf.float32)
+    # Resize for decoding stability
+    x = tf.image.resize(x, (32,32)) # RESIZE TO NEAREST POWER OF 2 GREATER THAN 32
+    # One-hot encode labels
+    y = tf.one_hot(tf.squeeze(y), depth=10) # tf.unique does not work
+    return x, y
 
 # Define dataset transformations
-def gray_dataset_from_arrays(x, y):
+def to_dataset(x, y):
     """
-    Takes NumPy arrays and uses these to create a `tf.data.Dataset`
-    Args:
-    \t- x: The images.
+    Takes NumPy arrays and uses these to create a `tf.data.Dataset`.\n
+    Args:\n
+    \t- x: The images.\n
     \t- y: The corresponding labels.
     """
-
-    def preprocess(x, y):
-        # Transform for compatibility with 2d conv
-        x = tf.expand_dims(x, axis=-1)
-        # Make sure it becomes a float in range [0,1]
-        x = tf.image.convert_image_dtype(x, dtype=tf.float32)
-        # Resize for decoding stability
-        x = tf.image.resize(x, (32,32))
-        # One-hot encode labels
-        y = tf.one_hot(y, depth=10)
-        return x, y
 
     return tf.data.Dataset.from_tensor_slices(
         (x, y)
-        ).map(
-            preprocess
-        ).batch(BATCH_SIZE).cache().repeat()
-
-# Define dataset transformations
-def color_dataset_from_arrays(x, y):
-    """
-    Takes NumPy arrays and uses these to create a `tf.data.Dataset`
-    Args:
-    \t- x: The images.
-    \t- y: The corresponding labels.
-    """
-
-    def preprocess(x, y):
-        # Make sure it becomes a float in range [0,1]
-        x = tf.image.convert_image_dtype(x, dtype=tf.float32)
-        # Resize for decoding stability
-        x = tf.image.resize(x, (32,32))
-        # One-hot encode labels
-        y = tf.one_hot(y, depth=10)
-        return x, y
-
-    return tf.data.Dataset.from_tensor_slices(
-        (x, y.flatten())
-        ).map(
-            preprocess
-        ).batch(BATCH_SIZE).cache().repeat()
+    ).map(
+        preprocess, num_parallel_calls=tf.data.AUTOTUNE
+    ).batch(
+        BATCH_SIZE, drop_remainder=True
+    ).cache().repeat().prefetch(
+        buffer_size=tf.data.AUTOTUNE
+    )
 
 # A non-pixelwise loss
 class SSIM_L1(tf.keras.losses.Loss): 
