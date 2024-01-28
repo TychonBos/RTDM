@@ -29,7 +29,7 @@ def build_encoder(channels, name="Encoder"):
     Returns: An instance of `tf.keras.Model`.
     """
     # Get input
-    inputs = tf.keras.layers.Input(shape=(None, None, channels), batch_size=None, name="Input")
+    inputs = x = tf.keras.layers.Input(shape=(None, None, channels), batch_size=None, name="Input")
     # Create some downsampling blocks
     for i, nfilters in enumerate(FILTERS):
         x = block(
