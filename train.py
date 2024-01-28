@@ -11,7 +11,7 @@ def train_step(classifier, ae, batch, epsilon, clf_loss_fn, ae_loss_fn, ae_optim
     imgs, labels = batch
     # Apply random jitter (done here to avoid double application or wrong reconstruction)
     imgs_jitter = tf.image.random_brightness(imgs, max_delta=.2)
-    imgs_jitter = tf.image.random_contrast(imgs_jitter, lower=-.2, upper=.2)
+    imgs_jitter = tf.image.random_contrast(imgs_jitter, lower=.5, upper=1.5)
 
     # Get adversarial examples
     adv_imgs = fgsm(classifier, imgs_jitter, epsilon)
