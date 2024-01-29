@@ -2,9 +2,10 @@
 import os
 os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 import tensorflow as tf, train, json
-from models import build_models, BATCH_SIZE
+from models2 import build_models, BATCH_SIZE
 from utils import fgsm, ifgsm, cw, to_dataset, distributor, evaluate
 from importlib import reload
+from functools import partial
 tf.keras.mixed_precision.set_global_policy("mixed_float16")
 
 # Loop over parameters
@@ -25,21 +26,39 @@ for data in [tf.keras.datasets.cifar10, tf.keras.datasets.mnist, tf.keras.datase
     # Train the models and save them
     train.run(
         distributor.experimental_distribute_dataset(data_train), 
-        .2, # SHOULD THIS BE VARIABLE? 
         classifier, 
         ae, 
         ae_optimizer, 
         classifier_optimizer
     )
 
-    for adv_attack in [cw, fgsm, ifgsm]:
-        for epsilon in  [tf.constant(0.01), tf.constant(0.06) if dataname=="cifar10" else tf.constant(0.3)]: # DO NOT LOOP TWICE FOR CW
-            # Evaluate
-            accuracies = evaluate(data_test, len(X_test)//BATCH_SIZE, classifier, ae, adv_attack, epsilon) # DO NOt LOOP THRICE FOR CLEAN IMGS
-            # Save results
-            current = f"{adv_attack.__name__} - {float(epsilon)} - {dataname}"
-            results[current] = accuracies
-            json.dump(results, open("results.json", mode="w"))
+    # Initialize results
+    results[dataname] = {}
+    results[dataname]["clean"] = evaluate(data_test, len(X_test)//BATCH_SIZE, classifier)
+    # Loop over attacks
+    for adv_attack in [
+        partial(cw, classifier=classifier), 
+        partial(fgsm, classifier=classifier, epsilon=tf.constant(.01)), 
+        partial(ifgsm, classifier=classifier, epsilon=tf.constant(.01)), 
+        partial(fgsm, classifier=classifier, epsilon=tf.constant(0.06) if dataname=="cifar10" else tf.constant(0.3)), 
+        partial(ifgsm, classifier=classifier, epsilon=tf.constant(0.06) if dataname=="cifar10" else tf.constant(0.3)), 
+    ]:
+        # Evaluate
+        results[dataname][f"{adv_attack.func.__name__} ({adv_attack.keywords['epsilon']})"] = evaluate(
+            data_test, 
+            len(X_test)//BATCH_SIZE, 
+            classifier, 
+            adv_attack
+        )
+        results[dataname][f"purified {adv_attack.func.__name__} ({adv_attack.keywords['epsilon']})"] = evaluate(
+            data_test, 
+            len(X_test)//BATCH_SIZE, 
+            classifier, 
+            adv_attack, 
+            ae
+        )
+    # Save results
+    json.dump(results, open("results.json", mode="w"))
 
     # Reload train module to force reset tf graphs
     tf.keras.backend.clear_session()
