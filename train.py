@@ -3,7 +3,7 @@ import json, tensorflow as tf
 from utils import distributor, fgsm, SSIM_L1
 
 # Define the per-batch training procedure
-def train_step(classifier, ae, batch, epsilon, clf_loss_fn, ae_loss_fn, ae_optimizer, classifier_optimizer):
+def train_step(classifier, ae, batch, clf_loss_fn, ae_loss_fn, ae_optimizer, classifier_optimizer):
     """
     Takes one batch of data and trains the models for one step.
     """
@@ -14,7 +14,7 @@ def train_step(classifier, ae, batch, epsilon, clf_loss_fn, ae_loss_fn, ae_optim
     imgs_jitter = tf.image.random_contrast(imgs_jitter, lower=.5, upper=1.5)
 
     # Get adversarial examples
-    adv_imgs = fgsm(classifier, imgs_jitter, epsilon)
+    adv_imgs = fgsm(classifier, imgs_jitter, epsilon=tf.random.uniform((), 0, .4))
 
     # Update autoencoder
     with tf.GradientTape() as tape:
@@ -53,7 +53,6 @@ def distributed_train_step(
     classifier, 
     ae, 
     batch, 
-    epsilon, 
     clf_loss_fn, 
     ae_loss_fn, 
     ae_optimizer, 
@@ -66,7 +65,6 @@ def distributed_train_step(
         classifier, 
         ae, 
         batch, 
-        epsilon, 
         clf_loss_fn, 
         ae_loss_fn, 
         ae_optimizer, 
@@ -75,12 +73,11 @@ def distributed_train_step(
     return distributor.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
 
 # Run the script
-def run(dataset, epsilon, classifier, ae, ae_optimizer, classifier_optimizer):
+def run(dataset, classifier, ae, ae_optimizer, classifier_optimizer):
     """
     Runs the entire training procedure for 1e4 steps.\n
     Args:\n
     \t- dataset: An instance of `tf.data.dataset` with output shape ((None,None,channels),(batch,10))\n
-    \t- epsilon: A tf float between 0 and 1, the perturbation level.
     """
     # Define some objects
     clf_loss_fn = tf.keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
@@ -97,7 +94,6 @@ def run(dataset, epsilon, classifier, ae, ae_optimizer, classifier_optimizer):
             classifier, 
             ae, 
             batch, 
-            epsilon, 
             clf_loss_fn, 
             ae_loss_fn, 
             ae_optimizer, 
