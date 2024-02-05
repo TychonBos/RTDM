@@ -1,7 +1,7 @@
 # Packages 
 import tensorflow as tf
 # Constants
-FILTERS = [64,128,256,512]
+FILTERS = [128,256,512]
 LATENT_SHAPE = (None, None, FILTERS[-1])
 BATCH_SIZE = 64
 
@@ -46,8 +46,8 @@ class Inception(tf.keras.Model):
     """
     def __init__(self, nfilters, module=upsampler, strides=2, dilation=1, activation=None, name=None, **kwargs):
         super().__init__(name=name, **kwargs)
-        self.branch1 = module(nfilters=nfilters//2, size=6, strides=strides, dilation=dilation, activation=activation)
-        self.branch2 = module(nfilters=nfilters//2, size=12, strides=strides, dilation=dilation, activation=activation)
+        self.branch1 = module(nfilters=nfilters//2, size=3, strides=strides, dilation=dilation, activation=activation)
+        self.branch2 = module(nfilters=nfilters//2, size=6, strides=strides, dilation=dilation, activation=activation)
         self.outputs = tf.keras.layers.Concatenate()
         self.config = ({
             "nfilters": nfilters,
@@ -169,12 +169,14 @@ def build_models(channels, nclasses):
     # Combine because why not
     ae = tf.keras.Sequential([encoder, decoder], name="Autoencoder")
     # Share an optimizer
-    ae_optimizer = tf.keras.optimizers.Adam(epsilon=1e-3) 
+    scheduler = tf.keras.optimizers.schedules.ExponentialDecay(1e-3, decay_steps=5e3, decay_rate=.95)
+    ae_optimizer = tf.keras.optimizers.Adam(learning_rate=scheduler, epsilon=1e-4) 
     ae_optimizer = tf.keras.mixed_precision.LossScaleOptimizer(ae_optimizer)
 
     # Classifier
     classifier = build_classifier(channels, nclasses)
     # Optimizer
-    classifier_optimizer = tf.keras.optimizers.Adam(epsilon=1e-3, learning_rate=1e-5) 
+    scheduler = tf.keras.optimizers.schedules.ExponentialDecay(1e-3, decay_steps=5e3, decay_rate=.95)
+    classifier_optimizer = tf.keras.optimizers.Adam(learning_rate=scheduler, epsilon=1e-4) 
     classifier_optimizer = tf.keras.mixed_precision.LossScaleOptimizer(classifier_optimizer)
     return classifier, ae, ae_optimizer, classifier_optimizer
