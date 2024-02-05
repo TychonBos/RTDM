@@ -2,7 +2,7 @@
 import os
 os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 import tensorflow as tf, train, json
-from models2 import build_models, BATCH_SIZE
+from models import build_models, BATCH_SIZE
 from utils import fgsm, ifgsm, cw, to_dataset, distributor, evaluate
 from importlib import reload
 from functools import partial
