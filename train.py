@@ -11,7 +11,7 @@ def train_step(classifier, ae, batch, clf_loss_fn, ae_loss_fn, ae_optimizer, cla
     imgs, labels = batch
     # Apply random jitter (done here to avoid double application or wrong reconstruction)
     imgs_jitter = tf.image.random_brightness(imgs, max_delta=.2)
-    imgs_jitter = tf.image.random_contrast(imgs_jitter, lower=.5, upper=1.5)
+    imgs_jitter = tf.image.random_contrast(imgs_jitter, lower=.8, upper=1.2)
 
     # Get adversarial examples
     adv_imgs = fgsm(classifier, imgs_jitter, epsilon=tf.random.uniform((), 0, .4))
@@ -33,8 +33,10 @@ def train_step(classifier, ae, batch, clf_loss_fn, ae_loss_fn, ae_optimizer, cla
         with tf.GradientTape() as tape:
             # Classify
             predictions = classifier(x, training=True)
+            # Wait until ae is trained
+            classifier_loss = tf.abs(tf.minimum(tf.sign(tf.reduce_mean(ae_loss)), 0.))
             # Calculate loss for classifier and prevent overflow
-            classifier_loss = clf_loss_fn(predictions, labels)
+            classifier_loss *= clf_loss_fn(labels, predictions)
             classifier_loss = classifier_optimizer.get_scaled_loss(classifier_loss)
         # Backpropagate the classifier loss
         classifier_gradients = tape.gradient(classifier_loss, classifier.trainable_variables)
@@ -73,9 +75,9 @@ def distributed_train_step(
     return distributor.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
 
 # Run the script
-def run(dataset, classifier, ae, ae_optimizer, classifier_optimizer):
+def run(dataset, classifier, ae, ae_optimizer, classifier_optimizer, steps=5e4):
     """
-    Runs the entire training procedure for 1e4 steps.\n
+    Runs the entire training procedure for `steps` steps.\n
     Args:\n
     \t- dataset: An instance of `tf.data.dataset` with output shape ((None,None,channels),(batch,10))\n
     """
@@ -87,7 +89,7 @@ def run(dataset, classifier, ae, ae_optimizer, classifier_optimizer):
     history = {}
     for i, batch in enumerate(dataset):
         # Stop training at some point
-        if i==5e4:
+        if i>=steps:
             break
         # Train the networks
         losses = distributed_train_step(
