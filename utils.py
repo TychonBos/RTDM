@@ -98,12 +98,12 @@ def evaluate(dataset, max_i, classifier, adv_attack=None, ae=None):
             break
         # Apply adversarial attack
         if adv_attack:
-            imgs = adv_attack(imgs)
+            imgs = adv_attack(imgs=imgs)
         # Apply purification
         if ae:
-            imgs = ae(imgs)
+            imgs = ae(imgs, training=False)
         # Calculate correct preds
         pred = classifier(imgs, training=False)
         correct += tf.reduce_sum(tf.cast(tf.argmax(pred, axis=1)==tf.argmax(labels, axis=1), dtype=tf.int32))
 
-    return float(correct/(i*BATCH_SIZE))
+    return float(correct/((i+1)*BATCH_SIZE))
