@@ -37,11 +37,13 @@ for data in [tf.keras.datasets.cifar10, tf.keras.datasets.mnist, tf.keras.datase
     results[dataname]["clean"] = evaluate(data_test, len(X_test)//BATCH_SIZE, classifier)
     # Loop over attacks
     for adv_attack in [
-        partial(cw, classifier=classifier), 
+        partial(cw, classifier=classifier, epsilon=None), 
         partial(fgsm, classifier=classifier, epsilon=tf.constant(.01)), 
         partial(ifgsm, classifier=classifier, epsilon=tf.constant(.01)), 
         partial(fgsm, classifier=classifier, epsilon=tf.constant(0.06) if dataname=="cifar10" else tf.constant(0.3)), 
         partial(ifgsm, classifier=classifier, epsilon=tf.constant(0.06) if dataname=="cifar10" else tf.constant(0.3)), 
+        partial(fgsm, classifier=classifier, epsilon=tf.constant(0.3) if dataname=="cifar10" else tf.constant(0.5)), 
+        partial(ifgsm, classifier=classifier, epsilon=tf.constant(0.3) if dataname=="cifar10" else tf.constant(0.5))
     ]:
         # Evaluate
         results[dataname][f"{adv_attack.func.__name__} ({adv_attack.keywords['epsilon']})"] = evaluate(
