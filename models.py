@@ -1,7 +1,7 @@
 # Packages
 import tensorflow as tf
 # Constants
-FILTERS = [32,64,64,128,128,256,256,512,512]
+FILTERS = [64,128,256]
 LATENT_SHAPE = (None, None, FILTERS[-1])
 BATCH_SIZE = 64
 
@@ -42,7 +42,7 @@ def build_encoder(channels, name="Encoder"):
         x = block(
             convtype=tf.keras.layers.Conv2D,
             nfilters=nfilters, 
-            size=(4,4), 
+            size=(3,3), 
             strides=(1,1), 
             name=f"Downsampler_{i*2}",
         )(x)
@@ -54,8 +54,7 @@ def build_encoder(channels, name="Encoder"):
             name=f"Downsampler_{i*2+1}",
         )(x)
         x = tf.keras.layers.Add(name=f"SumSkips_{i}")([x, x_])
-        if (i+1)%3==0:
-            x = tf.keras.layers.MaxPool2D()(x)
+        x = tf.keras.layers.MaxPool2D()(x)
     return tf.keras.Model(inputs=inputs, outputs=x, name=name)
 
 # Define a function to build the decoder
@@ -68,18 +67,18 @@ def build_decoder(channels, name="Decoder"):
     # Get input
     inputs = x = tf.keras.layers.Input(shape=LATENT_SHAPE, batch_size=None, name="LatentInput")
     # Revert the downsampling
-    for i, nfilters in enumerate(FILTERS):
+    for i, nfilters in enumerate(reversed(FILTERS)):
         x_ = block(
             convtype=tf.keras.layers.Conv2DTranspose,
             nfilters=nfilters, 
             size=(1,1), 
-            strides=(2,2) if (i+1)%3==0 else (1,1), 
+            strides=(2,2), 
             name=f"Skip_{i}"
         )(x)
         x = block(
             convtype=tf.keras.layers.Conv2D,
             nfilters=nfilters, 
-            size=(4,4), 
+            size=(3,3), 
             strides=(1,1), 
             name=f"Upsampler_{i*2}",
         )(x)
@@ -87,7 +86,7 @@ def build_decoder(channels, name="Decoder"):
             convtype=tf.keras.layers.Conv2DTranspose,
             nfilters=nfilters, 
             size=(3,3), 
-            strides=(2,2) if (i+1)%3==0 else (1,1), 
+            strides=(2,2) , 
             name=f"Upsampler_{i*2+1}",
         )(x)
         x = tf.keras.layers.Add(name=f"SumSkips_{i}")([x, x_])
@@ -123,7 +122,7 @@ def build_classifier(channels, nclasses, name="Classifier"):
         x = block(
             convtype=tf.keras.layers.Conv2D,
             nfilters=nfilters, 
-            size=(4,4), 
+            size=(3,3), 
             strides=(1,1), 
             name=f"Downsampler_{i*2}",
         )(x)
@@ -135,14 +134,11 @@ def build_classifier(channels, nclasses, name="Classifier"):
             name=f"Downsampler_{i*2+1}",
         )(x)
         x = tf.keras.layers.Add(name=f"SumSkips_{i}")([x, x_])
-        if (i+1)%3==0:
-            x = tf.keras.layers.MaxPool2D()(x)
+        x = tf.keras.layers.MaxPool2D()(x)
     x = tf.keras.layers.GlobalMaxPooling2D(name="Pooling")(x)
-    x = tf.keras.layers.Dense(units=512, activation=tf.keras.layers.LeakyReLU(), name="Dense1", kernel_constraint=tf.keras.constraints.MaxNorm(3))(x)
+    x = tf.keras.layers.Dense(units=512, activation=tf.keras.layers.LeakyReLU(), name="Dense_1", kernel_constraint=tf.keras.constraints.MaxNorm(3))(x)
     x = tf.keras.layers.Dropout(rate=.25)(x)
-    x = tf.keras.layers.Dense(units=256, activation=tf.keras.layers.LeakyReLU(), name="Dense2", kernel_constraint=tf.keras.constraints.MaxNorm(3))(x)
-    x = tf.keras.layers.Dropout(rate=.25)(x)
-    x = tf.keras.layers.Dense(units=128, activation=tf.keras.layers.LeakyReLU(), name="Dense3", kernel_constraint=tf.keras.constraints.MaxNorm(3))(x)
+    x = tf.keras.layers.Dense(units=128, activation=tf.keras.layers.LeakyReLU(), name="Dense_2", kernel_constraint=tf.keras.constraints.MaxNorm(3))(x)
     x = tf.keras.layers.Dropout(rate=.25)(x)
     outputs = tf.keras.layers.Dense(units=nclasses, dtype=tf.float32, activation=tf.keras.activations.softmax, name="Outputs")(x)
     return tf.keras.Model(inputs=inputs, outputs=outputs, name=name)
