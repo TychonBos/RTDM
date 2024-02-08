@@ -7,7 +7,7 @@ In this implementation, instead of pretraining a classifier and then training an
 Create a new conda environment by running `conda env create -f environment.yml`. To load the trained models and run a simple experiment, follow the code below. Note: The models included in this repository were trained on the Fashion-MNIST dataset.
 ```
 from models import block
-from utils import ifgsm, preprocess, BATCH_SIZE
+from utils import ifgsm, to_dataset
 import tensorflow as tf
 
 # Load models
@@ -22,10 +22,10 @@ with tf.keras.utils.custom_object_scope({
 
 # Load data
 *_, (X_test, y_test) = tf.keras.datasets.fashion_mnist.load_data()
-x, y = preprocess(X_test, y_test)
+x, y = list(to_dataset(X_test, y_test).take(1))[0]
 
 # Get predictions
-x_adv = ifgsm(classifier, x[:BATCH_SIZE], epsilon=.3) 
+x_adv = ifgsm(classifier, x, epsilon=.3) 
 y_pred_adv = classifier.predict(x_adv)
 x_pur = ae.predict(x_adv)
 y_pred_pur = classifier.predict(x_pur)
